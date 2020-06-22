@@ -30,3 +30,4 @@ snowflake是Twitter开源的一种分布式ID生成算法, 基于64位数实现�
 
 ## 用法
 
+目前core可以直接使用，starter还没完成

@@ -7,7 +7,6 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryNTimes;
-import org.apache.curator.retry.RetryOneTime;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
 
@@ -167,7 +166,7 @@ public class SnowflakeIdGenerateBuilder implements Closeable {
     public ZookeeperConfigBuilder useZookeeper(String zookeeperConnStr, RetryPolicy retryPolicy,
                                                int connectionTimeoutMs, int sessionTimeoutMs) {
         CuratorFramework curator = CuratorFrameworkFactory.builder().connectString(zookeeperConnStr)
-                .retryPolicy(Objects.nonNull(retryPolicy) ? retryPolicy : new RetryOneTime(5000))
+                .retryPolicy(Objects.nonNull(retryPolicy) ? retryPolicy : new RetryNTimes(3,5000))
                 .connectionTimeoutMs(connectionTimeoutMs)
                 .sessionTimeoutMs(sessionTimeoutMs)
                 .build();

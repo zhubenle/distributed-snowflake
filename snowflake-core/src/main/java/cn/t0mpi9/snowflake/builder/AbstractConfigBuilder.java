@@ -26,8 +26,17 @@ public abstract class AbstractConfigBuilder<T extends AbstractConfigBuilder> imp
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractConfigBuilder.class);
 
+    /**
+     * 用于执行定时任务
+     */
     protected ScheduledExecutorService scheduledExecutorService;
+    /**
+     * 定时时间间隔
+     */
     protected long schedulePeriod = 5;
+    /**
+     * 定时时间单位
+     */
     protected TimeUnit scheduleTimeUnit = TimeUnit.SECONDS;
 
     /**

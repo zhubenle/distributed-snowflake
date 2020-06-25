@@ -14,7 +14,7 @@ public class SnowflakeIdGenerateProperties {
     /**
      * 自定义配置dataCenterId和workerId
      */
-    private Custom custom = new Custom();
+    private Direct direct = new Direct();
 
     /**
      * redis配置
@@ -26,13 +26,12 @@ public class SnowflakeIdGenerateProperties {
      */
     private Zk zkConfig = new Zk();
 
-
-    public Custom getCustom() {
-        return custom;
+    public Direct getDirect() {
+        return direct;
     }
 
-    public void setCustom(Custom custom) {
-        this.custom = custom;
+    public void setDirect(Direct direct) {
+        this.direct = direct;
     }
 
     public Redis getRedisConfig() {
@@ -51,7 +50,7 @@ public class SnowflakeIdGenerateProperties {
         this.zkConfig = zkConfig;
     }
 
-    public static class Custom {
+    public static class Direct {
         private static final long DEFAULT_ID = 0;
         /**
          * 自定义workerId, 默认0
@@ -79,7 +78,7 @@ public class SnowflakeIdGenerateProperties {
         }
     }
 
-    public static class Zk extends BaseZkAndRedis{
+    public static class Zk extends BaseZkAndRedis {
 
         private static final int DEFAULT_TIMEOUT_MILLIS = 10000;
 
@@ -133,27 +132,27 @@ public class SnowflakeIdGenerateProperties {
         }
     }
 
-    public static class Redis extends BaseZkAndRedis{
+    public static class Redis extends BaseZkAndRedis {
         /**
          * 是否开启redis管理配置, 默认false
          */
         private boolean enable;
         /**
-         * redis的host
+         * redis的host, 默认127.0.0.1
          */
-        private String host;
+        private String host = "127.0.0.1";
         /**
-         * redis的port
+         * redis的port, 默认6379
          */
-        private int port;
+        private int port = 6379;
         /**
-         * redis的password
+         * redis的password, 默认空
          */
         private String password;
         /**
-         * redis的database
+         * redis的database, 默认0
          */
-        private int database;
+        private int database = 0;
 
         public boolean isEnable() {
             return enable;
@@ -198,15 +197,15 @@ public class SnowflakeIdGenerateProperties {
 
     public static class BaseZkAndRedis {
         /**
-         * 当前服务ip
+         * 当前服务ip, 默认获取网卡ip
          */
         protected String currentServerIp;
         /**
-         * 当前服务端口
+         * 当前服务端口 默认server.port
          */
         protected Integer currentServerPort;
         /**
-         * 当前服务应用名称
+         * 当前服务应用名称 默认spring.application.name
          */
         protected String applicationName;
         /**

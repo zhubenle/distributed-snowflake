@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author zhubenle
  */
-public abstract class AbstractConfigBuilder<T> implements ConfigBuilder {
+public abstract class AbstractConfigBuilder<T extends AbstractConfigBuilder> implements ConfigBuilder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractConfigBuilder.class);
 

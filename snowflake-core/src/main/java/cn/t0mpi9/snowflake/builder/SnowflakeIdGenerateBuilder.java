@@ -7,6 +7,7 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.RetryNTimes;
+import org.apache.curator.retry.RetryOneTime;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
 
@@ -100,7 +101,9 @@ public class SnowflakeIdGenerateBuilder implements Closeable {
      */
     public RedisConfigBuilder useJedisRedis(String redisHost, int redisPort, String password, int database) {
         Jedis jedis = new Jedis(redisHost, redisPort);
-        jedis.auth(Objects.nonNull(password) && "".equals(password) ? null : password);
+        if (password != null && !"".equals(password)) {
+            jedis.auth(password);
+        }
         jedis.select(database);
         return useJedisRedis(jedis);
     }
@@ -164,7 +167,7 @@ public class SnowflakeIdGenerateBuilder implements Closeable {
     public ZookeeperConfigBuilder useZookeeper(String zookeeperConnStr, RetryPolicy retryPolicy,
                                                int connectionTimeoutMs, int sessionTimeoutMs) {
         CuratorFramework curator = CuratorFrameworkFactory.builder().connectString(zookeeperConnStr)
-                .retryPolicy(retryPolicy)
+                .retryPolicy(Objects.nonNull(retryPolicy) ? retryPolicy : new RetryOneTime(5000))
                 .connectionTimeoutMs(connectionTimeoutMs)
                 .sessionTimeoutMs(sessionTimeoutMs)
                 .build();

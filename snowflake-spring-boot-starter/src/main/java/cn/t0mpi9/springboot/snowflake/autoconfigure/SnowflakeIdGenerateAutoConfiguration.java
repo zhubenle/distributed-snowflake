@@ -1,26 +1,28 @@
 package cn.t0mpi9.springboot.snowflake.autoconfigure;
 
 import cn.t0mpi9.snowflake.SnowflakeIdGenerate;
+import cn.t0mpi9.snowflake.builder.AbstractConfigBuilder;
 import cn.t0mpi9.snowflake.builder.RedisConfigBuilder;
 import cn.t0mpi9.snowflake.builder.SnowflakeIdGenerateBuilder;
 import cn.t0mpi9.snowflake.builder.ZookeeperConfigBuilder;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.retry.RetryOneTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.EnvironmentAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
+import java.util.Objects;
 
 /**
  * <br/>
@@ -30,86 +32,65 @@ import java.util.Enumeration;
  */
 @Configuration
 @EnableConfigurationProperties(value = {SnowflakeIdGenerateProperties.class})
-public class SnowflakeIdGenerateAutoConfiguration {
+public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, InitializingBean, DisposableBean {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SnowflakeIdGenerateAutoConfiguration.class);
 
-    @Value("${server.port}")
     private Integer serverPort;
-    @Value("${spring.application.name}")
     private String springApplicationName;
+    private SnowflakeIdGenerateBuilder snowflakeIdGenerateBuilder;
 
-    @ConditionalOnProperty(name = {"snowflake.redis-config.enable", "snowflake.zk-config.enable"}, havingValue = "false")
+
+    @ConditionalOnProperty(prefix = "snowflake", name = {"redis-config.enable", "zk-config.enable"},
+            havingValue = "false", matchIfMissing = true)
+    @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
     @Bean
     public SnowflakeIdGenerate snowflakeIdGenerateDirect(SnowflakeIdGenerateProperties properties) {
-        return SnowflakeIdGenerateBuilder.create()
-                .useDirect()
-                .workerId(properties.getCustom().getWorkerId())
-                .dataCenterId(properties.getCustom().getDataCenterId())
+        return snowflakeIdGenerateBuilder.useDirect()
+                .workerId(properties.getDirect().getWorkerId())
+                .dataCenterId(properties.getDirect().getDataCenterId())
                 .build();
     }
 
-    @ConditionalOnProperty(value = {"snowflake.zk-config.enable"}, havingValue = "true")
-    @ConditionalOnMissingBean(value = {CuratorFramework.class})
+    @ConditionalOnProperty(prefix = "snowflake", name = {"zk-config.enable"}, havingValue = "true")
+    @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
     @Bean
     public SnowflakeIdGenerate snowflakeIdGenerateZk(SnowflakeIdGenerateProperties properties) {
-
-        ZookeeperConfigBuilder zookeeperConfigBuilder = SnowflakeIdGenerateBuilder.create()
-                .useZookeeper(properties.getZkConfig().getConnection(), new RetryOneTime(10000)
+        ZookeeperConfigBuilder zookeeperConfigBuilder = snowflakeIdGenerateBuilder
+                .useZookeeper(properties.getZkConfig().getConnection(), null
                         , properties.getZkConfig().getConnectionTimeoutMillis(), properties.getZkConfig().getSessionTimeoutMillis());
 
-        return zookeeperConfigBuilder.ip(getCurrentServerIp(properties))
-                .port(getCurrentServerPort(properties))
-                .applicationName(getApplicationName(properties))
-                .localFileCache(properties.getZkConfig().isLocalFileCache())
-                .fileCachePath(properties.getZkConfig().getFileCachePath())
-                .build();
+        return doNotDirectBuild(zookeeperConfigBuilder, properties);
     }
 
-    @ConditionalOnProperty(value = {"snowflake.zk-config.enable"}, havingValue = "true")
-    @ConditionalOnBean(value = {CuratorFramework.class})
-    @Bean
-    public SnowflakeIdGenerate snowflakeIdGenerateUseCuratorFramework(SnowflakeIdGenerateProperties properties, CuratorFramework client) {
-
-        ZookeeperConfigBuilder zookeeperConfigBuilder = SnowflakeIdGenerateBuilder.create()
-                .useZookeeper(client);
-
-        return zookeeperConfigBuilder.ip(getCurrentServerIp(properties))
-                .port(getCurrentServerPort(properties))
-                .applicationName(getApplicationName(properties))
-                .localFileCache(properties.getZkConfig().isLocalFileCache())
-                .fileCachePath(properties.getZkConfig().getFileCachePath())
-                .build();
-    }
-
-    @ConditionalOnProperty(value = {"snowflake.redis-config.enable"}, havingValue = "true")
-    @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
+    @ConditionalOnProperty(prefix = "snowflake", name = {"redis-config.enable"}, havingValue = "true")
     @ConditionalOnClass(name = {"io.lettuce.core.RedisClient"})
+    @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
     @Bean
     public SnowflakeIdGenerate snowflakeIdGenerateLettuce(SnowflakeIdGenerateProperties properties) {
-        RedisConfigBuilder redisConfigBuilder = SnowflakeIdGenerateBuilder.create()
+        RedisConfigBuilder redisConfigBuilder = snowflakeIdGenerateBuilder
                 .useLettuceRedis(properties.getRedisConfig().getHost(), properties.getRedisConfig().getPort(),
                         properties.getRedisConfig().getPassword(), properties.getRedisConfig().getDatabase());
 
-        return redisConfigBuilder.ip(getCurrentServerIp(properties))
-                .port(getCurrentServerPort(properties))
-                .applicationName(getApplicationName(properties))
-                .localFileCache(properties.getRedisConfig().isLocalFileCache())
-                .fileCachePath(properties.getRedisConfig().getFileCachePath())
-                .build();
+        return doNotDirectBuild(redisConfigBuilder, properties);
     }
 
-    @ConditionalOnProperty(value = {"snowflake.redis-config.enable"}, havingValue = "true")
-    @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
+    @ConditionalOnProperty(prefix = "snowflake", name = {"redis-config.enable"}, havingValue = "true")
     @ConditionalOnClass(name = {"redis.clients.jedis.Jedis"})
     @ConditionalOnMissingClass(value = {"io.lettuce.core.RedisClient"})
+    @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
     @Bean
     public SnowflakeIdGenerate snowflakeIdGenerateJedis(SnowflakeIdGenerateProperties properties) {
-        RedisConfigBuilder redisConfigBuilder = SnowflakeIdGenerateBuilder.create()
-                .useLettuceRedis(properties.getRedisConfig().getHost(), properties.getRedisConfig().getPort(),
+        RedisConfigBuilder redisConfigBuilder = snowflakeIdGenerateBuilder
+                .useJedisRedis(properties.getRedisConfig().getHost(), properties.getRedisConfig().getPort(),
                         properties.getRedisConfig().getPassword(), properties.getRedisConfig().getDatabase());
 
-        return redisConfigBuilder.ip(getCurrentServerIp(properties))
+        return doNotDirectBuild(redisConfigBuilder, properties);
+    }
+
+
+    private SnowflakeIdGenerate doNotDirectBuild(AbstractConfigBuilder configBuilder, SnowflakeIdGenerateProperties properties) {
+        return configBuilder.ip(getCurrentServerIp(properties))
                 .port(getCurrentServerPort(properties))
                 .applicationName(getApplicationName(properties))
                 .localFileCache(properties.getRedisConfig().isLocalFileCache())
@@ -125,9 +106,9 @@ public class SnowflakeIdGenerateAutoConfiguration {
         return ip;
     }
 
-    private int getCurrentServerPort(SnowflakeIdGenerateProperties properties) {
-        int port = properties.getZkConfig().getCurrentServerPort();
-        if (port == 0) {
+    private Integer getCurrentServerPort(SnowflakeIdGenerateProperties properties) {
+        Integer port = properties.getZkConfig().getCurrentServerPort();
+        if (Objects.isNull(port) || port == 0) {
             port = serverPort;
         }
         return port;
@@ -173,5 +154,23 @@ public class SnowflakeIdGenerateAutoConfiguration {
             LOGGER.error("获取网卡IP异常: {}", e.getMessage());
         }
         return candidateAddress;
+    }
+
+    @Override
+    public void setEnvironment(Environment environment) {
+        serverPort = environment.getProperty("server.port", Integer.class);
+        springApplicationName = environment.getProperty("spring.application.name", String.class);
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        snowflakeIdGenerateBuilder = SnowflakeIdGenerateBuilder.create();
+    }
+
+    @Override
+    public void destroy() throws Exception {
+        if (Objects.nonNull(snowflakeIdGenerateBuilder)) {
+            snowflakeIdGenerateBuilder.close();
+        }
     }
 }

@@ -158,7 +158,7 @@ public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, I
 
     @Override
     public void setEnvironment(Environment environment) {
-        serverPort = environment.getProperty("server.port", Integer.class);
+        serverPort = environment.getProperty("server.port", Integer.class, 8080);
         springApplicationName = environment.getProperty("spring.application.name", String.class);
     }
 

@@ -197,11 +197,11 @@ public class SnowflakeIdGenerateProperties {
 
     public static class BaseZkAndRedis {
         /**
-         * 当前服务ip, 默认获取网卡ip
+         * 当前服务ip, 默认获取应用机器网卡ip
          */
         protected String currentServerIp;
         /**
-         * 当前服务端口 默认server.port
+         * 当前服务端口 默认获取server.port，如果server.port为空，默认8080
          */
         protected Integer currentServerPort;
         /**

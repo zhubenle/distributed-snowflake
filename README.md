@@ -46,4 +46,118 @@ snowflake是Twitter开源的一种分布式ID生成算法, 基于64位数实现�
 该模块提供的是spring-boot自动化配置`SnowflakeIdGenerate`对象。`ip`配置默认会获取网卡ip，`port`默认获取`server.port`参数，`applicationName`默认获取`spring.application.name`参数，
 所以在没配置`port`和`applicationName`时，这两个spring参数`server.port`和`spring.application.name`需要配置
 
+## 实际应用
+项目上应用有两种方式:
+- 使用该依赖创建个单独的服务用于对外提供主键生成接口
+- 将该依赖添加到项目中配置使用
+
+因为在项目中配置使用时，需要配置当前服务的ip和port，为了避免手动配置，项目上运行时，ip配置是获取当前服务运行机器的网卡ip，示例代码如下:
+```java
+public class NetUtils {
+    public static InetAddress getLocalAddress() {
+        InetAddress candidateAddress = null;
+        try {
+            // 遍历所有的网络接口
+            Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+            while (ifaces.hasMoreElements()) {
+                NetworkInterface iface = ifaces.nextElement();
+                // 在所有的接口下再遍历IP
+                Enumeration<InetAddress> inetAddrs = iface.getInetAddresses();
+                while (inetAddrs.hasMoreElements()) {
+                    InetAddress inetAddr = inetAddrs.nextElement();
+                    if (!inetAddr.isLoopbackAddress()) {
+                        // 排除loopback类型地址
+                        if (inetAddr.isSiteLocalAddress()) {
+                            // 如果是site-local地址，就是它了
+                            return inetAddr;
+                        } else if (candidateAddress == null) {
+                            // site-local类型的地址未被发现，先记录候选地址
+                            candidateAddress = inetAddr;
+                        }
+                    }
+                }
+            }
+            if (candidateAddress != null) {
+                return candidateAddress;
+            }
+            // 如果没有发现 non-loopback地址.只能用最次选的方案
+            candidateAddress = InetAddress.getLocalHost();
+        } catch (Exception e) {
+            LOGGER.error("获取网卡IP异常: {}", e.getMessage());
+        }
+        return candidateAddress;
+    }
+}
+```
+端口配置，如果是spring boot项目好获取，直接server.port属性就行。如果是普通spring的tomcat项目可以通过如下方式获取当前服务port:
+```java
+@Configuration
+public class DemoConfiguration implements InitializingBean, DisposableBean {
+    @Bean
+    public SnowflakeIdGenerate snowflakeIdGenerate(@Value("${zookeeper.connection}") String connectionStr,
+                                                   WebApplicationContext webApplicationContext) {
+        Integer port = null;
+        try {
+            //暂时只判断了tomcat容器，其他容器会失败
+            if (webApplicationContext.getServletContext() instanceof ApplicationContextFacade) {
+                //获取ServletContext
+                ApplicationContextFacade contextFacade = (ApplicationContextFacade) webApplicationContext.getServletContext();
+                Field field = ApplicationContextFacade.class.getDeclaredField("context");
+                field.setAccessible(true);
+                ApplicationContext catalinaApplicationContext = (ApplicationContext) field.get(contextFacade);
+                field = ApplicationContext.class.getDeclaredField("service");
+                field.setAccessible(true);
+                StandardService standardService = (StandardService) field.get(catalinaApplicationContext);
+                for (Connector connector : standardService.findConnectors()) {
+                    if (connector.getProtocol().toLowerCase().contains("http")) {
+                        port = connector.getPort();
+                        //如果tomcat配置了多个Connector,只取第一个
+                        break;
+                    }
+                }
+            } else if (webApplicationContext.getServletContext() instanceof MockServletContext) {
+                //如果是本地Junit测试，设置为端口为0
+                port = 0;
+            }
+
+        } catch (Exception e) {
+            LOGGER.error("获取当前tomcat的http端口失败", e);
+        }
+        String ip = NetUtils.getLocalAddress().getHostAddress();
+        return snowflakeIdGenerateBuilder.useZookeeper(connectionStr)
+                .ip(ip)
+                .port(port)
+                .applicationName("sgw")
+                .build();
+    }
+
+    private SnowflakeIdGenerateBuilder snowflakeIdGenerateBuilder;
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        snowflakeIdGenerateBuilder = SnowflakeIdGenerateBuilder.create();
+    }
+
+    @Override
+    public void destroy() throws Exception {
+        snowflakeIdGenerateBuilder.close();
+    }
+}
+```
+主要思路就是获取到ServletContext对象，然后获取到tomcat的Connector对象，并获取到配置的第一个连接器配置的端口。注意上面的方式还需要引用以下包，version根据运行的tomcat版本选择:<br>
+- gradle
+```
+providedCompile group: 'org.apache.tomcat', name: 'tomcat-catalina', version: '8.5.56'
+```
+- maven 
+```
+<dependency>
+    <groupId>org.apache.tomcat</groupId>
+    <artifactId>tomcat-catalina</artifactId>
+    <version>8.5.56</version>
+    <scope>provided</scope>
+</dependency>
+```
+
+<br>
 ~~有问题麻烦提出，觉得还行的就给个star~~

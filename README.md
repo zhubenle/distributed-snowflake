@@ -36,6 +36,8 @@ snowflake是Twitter开源的一种分布式ID生成算法, 基于64位数实现�
 `SnowflakeIdGenerateBuilder.create()`静态方法创建`SnowflakeIdGenerateBuilder`对象，该对象包含方法如下:
 - `public DirectConfigBuilder useDirect()`方法，该方法返回一个`DirectConfigBuilder`对象，该对象两个方法`dataCenterId(long dataCenterId)`和`workerId(long workerId)`
 分别设置dataCenterId和workerId，然后通过`DirectConfigBuilder`的`build()`方法创建`SnowflakeIdGenerate`对象。
+- `public DirectConfigBuilder useDirectIp()`方法，该方法返回`DirectIpConfigBuilder`对象，该对象可以配置当前服务ip地址作为workerId和dataCenterId的创建条件。用的是ip第四段值，
+所以得保证服务节点在同一个子网内，防止出现重复的workerId和dataCenterId，导致生成的ID出现冲突。未配置服务ip的，默认获取本机ip
 - `public ZookeeperConfigBuilder useZookeeper(CuratorFramework curator)`方法，该方法返回`ZookeeperConfigBuilder`对象, 参数是zookeeper客户端工具CuratorFramework的对象。
 该对象父类中有几个方法用于配置必要参数，分别为`ip(String ip)`设置当前服务实例的ip地址，`port(Integer port)`设置当前服务实例的端口，`applicationName(String applicationName)`
 设置当前应用项目名称。最后也是通过父类方法`build()`方法创建`SnowflakeIdGenerate`对象。

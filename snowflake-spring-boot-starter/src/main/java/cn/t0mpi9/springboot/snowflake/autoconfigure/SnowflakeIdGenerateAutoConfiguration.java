@@ -17,6 +17,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.EnvironmentAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 
 import java.net.InetAddress;
@@ -46,6 +47,7 @@ public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, I
     @ConditionalOnProperty(prefix = "snowflake", name = {"direct-ip.enable", "redis-config.enable", "zk-config.enable"},
             havingValue = "false", matchIfMissing = true)
     @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
+    @Primary
     @Bean
     public SnowflakeIdGenerate snowflakeIdGenerateDirect(SnowflakeIdGenerateProperties properties) {
         return snowflakeIdGenerateBuilder.useDirect()

@@ -40,6 +40,17 @@ public class SnowflakeIdGenerateBuilder implements Closeable {
         return new DirectConfigBuilder();
     }
 
+    /**
+     * 使用ip地址的最后数字作为生产workerId和dataCenterId
+     * <b/>
+     * 需要保证服务在同一个子网内，防止出现workerId和dataCenterId重复后主键冲突
+     *
+     * @return DirectConfigBuilder
+     */
+    public DirectIpConfigBuilder useDirectIp() {
+        return new DirectIpConfigBuilder();
+    }
+
     public <T extends ConfigBuilder> T use(T t) {
         configBuilder = t;
         return t;

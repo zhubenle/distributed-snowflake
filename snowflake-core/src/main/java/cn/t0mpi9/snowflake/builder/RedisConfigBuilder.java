@@ -64,8 +64,8 @@ public class RedisConfigBuilder extends AbstractConfigBuilder<RedisConfigBuilder
             String sequentialStr = connection.eval(Constant.REDIS_ADD_PERSISTENT_SCRIPT,
                     new String[]{persistentKey, persistentTimeKey, ipPort}, String.valueOf(System.currentTimeMillis()));
             long sequential = Integer.parseInt(sequentialStr);
-            workerId = sequential & 31;
-            dataCenterId = sequential >> 5 & 31;
+            workerId = sequential & Constant.BIT;
+            dataCenterId = sequential >> 5 & Constant.BIT;
 
             saveLocalFile(workerId, dataCenterId);
 

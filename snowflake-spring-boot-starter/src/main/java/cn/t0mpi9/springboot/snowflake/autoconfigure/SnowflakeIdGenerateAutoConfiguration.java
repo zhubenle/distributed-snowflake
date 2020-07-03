@@ -40,8 +40,10 @@ public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, I
     private String springApplicationName;
     private SnowflakeIdGenerateBuilder snowflakeIdGenerateBuilder;
 
-
-    @ConditionalOnProperty(prefix = "snowflake", name = {"redis-config.enable", "zk-config.enable"},
+    /**
+     * direct-ip, redis-config, zk-config都未开启时，用配置的workerId和dataCenterId
+     */
+    @ConditionalOnProperty(prefix = "snowflake", name = {"direct-ip.enable", "redis-config.enable", "zk-config.enable"},
             havingValue = "false", matchIfMissing = true)
     @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
     @Bean
@@ -52,6 +54,25 @@ public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, I
                 .build();
     }
 
+    /**
+     * direct-ip开启时，用配置的ip创建，没有配置就获取本机ip
+     */
+    @ConditionalOnProperty(prefix = "snowflake", name = {"direct-ip.enable"}, havingValue = "true")
+    @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
+    @Bean
+    public SnowflakeIdGenerate snowflakeIdGenerateDirectIp(SnowflakeIdGenerateProperties properties) {
+        String currentServerIp = properties.getDirectIp().getCurrentServerIp();
+        if (currentServerIp == null) {
+            currentServerIp = getLocalAddress().getHostAddress();
+        }
+        return snowflakeIdGenerateBuilder.useDirectIp()
+                .currentServerIp(currentServerIp)
+                .build();
+    }
+
+    /**
+     * zk-config开启，用zk配置创建
+     */
     @ConditionalOnProperty(prefix = "snowflake", name = {"zk-config.enable"}, havingValue = "true")
     @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
     @Bean
@@ -60,9 +81,12 @@ public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, I
                 .useZookeeper(properties.getZkConfig().getConnection(), null
                         , properties.getZkConfig().getConnectionTimeoutMillis(), properties.getZkConfig().getSessionTimeoutMillis());
 
-        return doNotDirectBuild(zookeeperConfigBuilder, properties);
+        return doConfigBuild(zookeeperConfigBuilder, properties.getZkConfig());
     }
 
+    /**
+     * redis-config开启，如果引入了lettuce的redis客户端，用该客户端创建连接
+     */
     @ConditionalOnProperty(prefix = "snowflake", name = {"redis-config.enable"}, havingValue = "true")
     @ConditionalOnClass(name = {"io.lettuce.core.RedisClient"})
     @ConditionalOnMissingBean(value = {SnowflakeIdGenerate.class})
@@ -72,9 +96,12 @@ public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, I
                 .useLettuceRedis(properties.getRedisConfig().getHost(), properties.getRedisConfig().getPort(),
                         properties.getRedisConfig().getPassword(), properties.getRedisConfig().getDatabase());
 
-        return doNotDirectBuild(redisConfigBuilder, properties);
+        return doConfigBuild(redisConfigBuilder, properties.getRedisConfig());
     }
 
+    /**
+     * redis-config开启，如果引入了jedis的redis客户端，用该客户端创建连接
+     */
     @ConditionalOnProperty(prefix = "snowflake", name = {"redis-config.enable"}, havingValue = "true")
     @ConditionalOnClass(name = {"redis.clients.jedis.Jedis"})
     @ConditionalOnMissingClass(value = {"io.lettuce.core.RedisClient"})
@@ -85,43 +112,68 @@ public class SnowflakeIdGenerateAutoConfiguration implements EnvironmentAware, I
                 .useJedisRedis(properties.getRedisConfig().getHost(), properties.getRedisConfig().getPort(),
                         properties.getRedisConfig().getPassword(), properties.getRedisConfig().getDatabase());
 
-        return doNotDirectBuild(redisConfigBuilder, properties);
+        return doConfigBuild(redisConfigBuilder, properties.getRedisConfig());
     }
 
-
-    private SnowflakeIdGenerate doNotDirectBuild(AbstractConfigBuilder configBuilder, SnowflakeIdGenerateProperties properties) {
-        return configBuilder.ip(getCurrentServerIp(properties))
-                .port(getCurrentServerPort(properties))
-                .applicationName(getApplicationName(properties))
-                .localFileCache(properties.getRedisConfig().isLocalFileCache())
-                .fileCachePath(properties.getRedisConfig().getFileCachePath())
+    /**
+     * 创建
+     *
+     * @param configBuilder 建造对象抽象父类
+     * @param zkAndRedis    配置抽象父类
+     * @return SnowflakeIdGenerate
+     */
+    private SnowflakeIdGenerate doConfigBuild(AbstractConfigBuilder configBuilder, SnowflakeIdGenerateProperties.BaseZkAndRedis zkAndRedis) {
+        return configBuilder.ip(getIpOrDefault(zkAndRedis))
+                .port(getPortOrDefault(zkAndRedis))
+                .applicationName(getApplicationNameOrDefault(zkAndRedis))
+                .localFileCache(zkAndRedis.isLocalFileCache())
+                .fileCachePath(zkAndRedis.getFileCachePath())
                 .build();
     }
 
-    private String getCurrentServerIp(SnowflakeIdGenerateProperties properties) {
-        String ip = properties.getZkConfig().getCurrentServerIp();
-        if (ip == null) {
-            ip = getLocalAddress().getHostAddress();
+    /**
+     * 获取配置的当前服务ip，没有的话获取本机ip
+     *
+     * @param zkAndRedis 配置
+     * @return ip
+     */
+    private String getIpOrDefault(SnowflakeIdGenerateProperties.BaseZkAndRedis zkAndRedis) {
+        if (zkAndRedis.getCurrentServerIp() == null) {
+            return getLocalAddress().getHostAddress();
         }
-        return ip;
+        return zkAndRedis.getCurrentServerIp();
     }
 
-    private Integer getCurrentServerPort(SnowflakeIdGenerateProperties properties) {
-        Integer port = properties.getZkConfig().getCurrentServerPort();
-        if (Objects.isNull(port) || port == 0) {
-            port = serverPort;
+    /**
+     * 获取配置的当前服务端口，没有的话获取spring-boot的server.port属性
+     *
+     * @param zkAndRedis 配置
+     * @return 端口
+     */
+    private Integer getPortOrDefault(SnowflakeIdGenerateProperties.BaseZkAndRedis zkAndRedis) {
+        if (Objects.isNull(zkAndRedis.getCurrentServerIp()) || zkAndRedis.getCurrentServerPort() == 0) {
+            return serverPort;
         }
-        return port;
+        return zkAndRedis.getCurrentServerPort();
     }
 
-    private String getApplicationName(SnowflakeIdGenerateProperties properties) {
-        String applicationName = properties.getZkConfig().getApplicationName();
-        if (applicationName == null) {
-            applicationName = springApplicationName;
+    /**
+     * 获取配置的当前服务应用名称，没有的话默认取spring-boot的spring.application.name配置
+     *
+     * @param zkAndRedis 配置
+     * @return 端口
+     */
+    private String getApplicationNameOrDefault(SnowflakeIdGenerateProperties.BaseZkAndRedis zkAndRedis) {
+        if (zkAndRedis.getApplicationName() == null) {
+            return springApplicationName;
         }
-        return applicationName;
+        return zkAndRedis.getApplicationName();
     }
 
+    /**
+     * 获取本机ip地址
+     * @return
+     */
     public static InetAddress getLocalAddress() {
         InetAddress candidateAddress = null;
         try {

@@ -1,5 +1,6 @@
 package cn.t0mpi9.snowflake.test;
 
+import cn.t0mpi9.snowflake.Constant;
 import cn.t0mpi9.snowflake.SnowflakeIdGenerate;
 import cn.t0mpi9.snowflake.builder.SnowflakeIdGenerateBuilder;
 import org.junit.Test;
@@ -17,8 +18,8 @@ public class SnowflakeIdGenerateTest {
     @Test
     public void testUtil() {
         int sq = 1023;
-        System.out.println(sq & 31);
-        System.out.println(sq >> 5 & 31);
+        System.out.println(sq & Constant.BIT);
+        System.out.println(sq >> 5 & Constant.BIT);
         System.out.println(System.getProperty("java.io.tmpdir"));
     }
 
@@ -28,10 +29,21 @@ public class SnowflakeIdGenerateTest {
     }
 
     @Test
+    public void testSnowflakeIdGenerateIp() throws Exception {
+        SnowflakeIdGenerate snowflakeIdGenerate = SnowflakeIdGenerateBuilder.create()
+                .useDirectIp()
+                .currentServerIp("192.100.10.89")
+                .build();
+
+        long id = snowflakeIdGenerate.nextId();
+        System.out.println(SnowflakeIdGenerate.parseId(id));
+    }
+
+    @Test
     public void testSnowflakeIdGenerateZk() throws Exception {
         SnowflakeIdGenerate snowflakeIdGenerate = SnowflakeIdGenerateBuilder.create()
                 .useZookeeper("127.0.0.1:2181")
-                .applicationName("sgw")
+                .applicationName("demo-spring")
                 .ip("192.168.1.105")
                 .port(17000)
                 .build();

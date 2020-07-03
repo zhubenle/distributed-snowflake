@@ -24,6 +24,8 @@ public class Constant {
     public static final String TMP_DIR = System.getProperty("java.io.tmpdir");
     public static final Pattern PATTERN_APPLICATION_NAME = Pattern.compile("^[A-Za-z0-9\\-_]+$");
 
+    public static final long BIT = 31L;
+
     public static final String REDIS_ADD_PERSISTENT_SCRIPT = ""
             + "local table_maxn = function(t)\n"
             + "  local mn = -1;\n"

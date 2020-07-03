@@ -17,6 +17,11 @@ public class SnowflakeIdGenerateProperties {
     private Direct direct = new Direct();
 
     /**
+     * 使用当前服务ip配置
+     */
+    private DirectIp directIp = new DirectIp();
+
+    /**
      * redis配置
      */
     private Redis redisConfig = new Redis();
@@ -32,6 +37,14 @@ public class SnowflakeIdGenerateProperties {
 
     public void setDirect(Direct direct) {
         this.direct = direct;
+    }
+
+    public DirectIp getDirectIp() {
+        return directIp;
+    }
+
+    public void setDirectIp(DirectIp directIp) {
+        this.directIp = directIp;
     }
 
     public Redis getRedisConfig() {
@@ -75,6 +88,33 @@ public class SnowflakeIdGenerateProperties {
 
         public void setDataCenterId(long dataCenterId) {
             this.dataCenterId = dataCenterId;
+        }
+    }
+
+    public static class DirectIp {
+        /**
+         * 是否开启使用ip
+         */
+        private boolean enable;
+        /**
+         * 当前服务IP地址，默认获取网卡ip
+         */
+        private String currentServerIp;
+
+        public boolean isEnable() {
+            return enable;
+        }
+
+        public void setEnable(boolean enable) {
+            this.enable = enable;
+        }
+
+        public String getCurrentServerIp() {
+            return currentServerIp;
+        }
+
+        public void setCurrentServerIp(String currentServerIp) {
+            this.currentServerIp = currentServerIp;
         }
     }
 

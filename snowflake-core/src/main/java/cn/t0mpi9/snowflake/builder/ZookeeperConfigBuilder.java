@@ -97,8 +97,8 @@ public class ZookeeperConfigBuilder extends AbstractConfigBuilder<ZookeeperConfi
             String ipPortSequential = nodePath.substring(nodePath.lastIndexOf(Constant.SLASH) + 1);
             //0000000000
             int sequential = Integer.parseInt(ipPortSequential.split(Constant.STRIKE)[1]);
-            workerId = sequential & 31;
-            dataCenterId = sequential >> 5 & 31;
+            workerId = sequential & Constant.BIT;
+            dataCenterId = sequential >> 5 & Constant.BIT;
             saveLocalFile(workerId, dataCenterId);
             scheduledUpdateData(nodePath);
         } catch (IllegalStateException e) {

@@ -214,7 +214,8 @@ public abstract class AbstractConfigBuilder<T extends AbstractConfigBuilder> imp
      */
     protected File getLocalFile() {
         String fileName = Constant.ROOT_NAME + File.separator + applicationName + Constant.STRIKE + port;
-        String filePath = Constant.TMP_DIR + fileName;
+        String filePath = (Constant.TMP_DIR.endsWith(File.separator) ? Constant.TMP_DIR : (Constant.TMP_DIR + File.separator))
+                + fileName;
         if (fileCachePath != null) {
             filePath = fileCachePath + (fileCachePath.endsWith(Constant.SLASH) ? "" : Constant.SLASH) + fileName;
         }
